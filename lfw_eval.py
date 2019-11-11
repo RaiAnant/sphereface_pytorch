@@ -78,13 +78,13 @@ net.feature = True
 zfile = zipfile.ZipFile(args.lfw)
 
 landmark = {}
-with open('data/lfw_landmark.txt') as f:
+with open('/content/sphereface_pytorch/data/lfw_landmark.txt') as f:
     landmark_lines = f.readlines()
 for line in landmark_lines:
     l = line.replace('\n','').split('\t')
     landmark[l[0]] = [int(k) for k in l[1:]]
 
-with open('data/pairs.txt') as f:
+with open('/content/sphereface_pytorch/data/pairs.txt') as f:
     pairs_lines = f.readlines()[1:]
 
 for i in range(6000):
