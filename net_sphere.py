@@ -239,7 +239,6 @@ class AngleLayer(nn.Module):
           Angle layer computations 
         '''
 
-        # W * x = ||W|| * ||x|| * cos(θ)
         inner_wx = input.mm(self.weight)
         cos_theta = inner_wx / x_modulus.view(-1, 1) / w_modulus.view(1, -1)
         cos_theta = cos_theta.clamp(-1, 1)
@@ -260,23 +259,27 @@ class AngleLayer(nn.Module):
 
 class SphereAndRgularLoss(nn.Module):
     def __init__(self, lamb = 6):
-    super(SphereAndRgularLoss, self).__init__()
-    self.lamb = lamb
-    self.angular = AngularSoftmaxWithLoss()
-    self.loss = 0
-    self.regularLoss = 0
+        super(SphereAndRgularLoss, self).__init__()
+        self.lamb = lamb
+        self.angular = AngleLoss()
+        self.loss = 0
+        self.regularLoss = 0
+
+    @property
+    def it(self):      return self.angular.it
 
     def forward(self, input, target):
-    loss = self.angular(input, target)
-    regularLoss = input[2]
+        loss = self.angular(input[:-1], target)
+        regularLoss = input[2]
+        # print(regularLoss)
 
-    self.loss = loss.detach()
-    self.regularLoss = regularLoss.detach()
-    return loss + self.lamb * regularLoss
+        self.loss = loss.detach()
+        self.regularLoss = regularLoss.detach()
+        return loss + self.lamb * regularLoss
 
 class regularNet(nn.Module):
-    def __init__(self, vgg, out_features):
-      super(AngularVGG, self).__init__()
+    def __init__(self, out_features = 10574):
+      super(regularNet, self).__init__()
       self.resnet =  resnet()
       self.special = AngleLayer(512, out_features)
 
