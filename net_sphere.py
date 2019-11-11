@@ -186,3 +186,101 @@ class sphere20a(nn.Module):
         if self.feature: return x
         x = self.angleLayer(x)
         return x
+    
+#-------------------------------Regular face-----------------------------------------------------------------------
+    
+class AngleLayer(nn.Module):
+    def __init__(self, in_planes, out_planes, m=4, norm_data=True, radius=20):
+        super(AngleLayer, self).__init__()
+        self.in_planes = in_planes
+        self.out_planes = out_planes
+        self.num_class = out_planes
+        self.weight = nn.Parameter(torch.Tensor(in_planes, out_planes))
+        self.weight.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
+        # self.reset_parameters()  why is this needed?....it causes weights to becom un-normalised        
+        self.init_wt = self.weight
+        self.m = m
+        self.radius = float(radius)
+        self.norm_data = norm_data
+
+        self.cos_val = [
+            lambda x: x**0,
+            lambda x: x**1,
+            lambda x: 2*x**2-1,
+            lambda x: 4*x**3-3*x,
+            lambda x: 8*x**4-8*x**2+1,
+            lambda x: 16*x**5-20*x**3+5*x,
+        ]
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.weight.size(0))
+        self.weight.data.uniform_(-stdv, stdv)
+
+    def forward(self, input):
+        with torch.no_grad():
+            self.weight.data.renorm_(2, 1, 1e-5).mul_(1e5)
+            x_modulus = input.pow(2).sum(1).pow(0.5)
+            w_modulus = self.weight.pow(2).sum(0).pow(0.5)
+        
+        '''
+          Dealing with RegularFace computations 
+        '''
+
+        cos = torch.mm(self.weight.t(), self.weight)
+        cos.clamp(-1, 1)
+        cos1 = cos.detach()
+        cos1.scatter_(1, torch.arange(self.num_class).view(-1, 1).long().cuda(), -100)
+        _, indices = torch.max(cos1, dim=0)
+        mask = torch.zeros((self.num_class, self.num_class)).cuda()
+        mask.scatter_(1, indices.view(-1, 1).long(), 1)
+        exclusive_loss = torch.dot(cos.view(cos.numel()), mask.view(mask.numel())) / self.num_class
+
+        '''
+          Angle layer computations 
+        '''
+
+        # W * x = ||W|| * ||x|| * cos(θ)
+        inner_wx = input.mm(self.weight)
+        cos_theta = inner_wx / x_modulus.view(-1, 1) / w_modulus.view(1, -1)
+        cos_theta = cos_theta.clamp(-1, 1)
+
+        cos_m_theta = self.cos_val[self.m](cos_theta)
+        theta = Variable(cos_theta.data.acos())
+        # k * pi / m <= theta <= (k + 1) * pi / m
+        k = (self.m * theta / 3.14159265).floor()
+        minus_one = k * 0.0 - 1
+        # Phi(yi, i) = (-1)**k * cos(myi,i) - 2 * k
+        phi_theta = (minus_one ** k) * cos_m_theta - 2 * k
+
+        cos_x = cos_theta * x_modulus.view(-1, 1)
+        phi_x = phi_theta * x_modulus.view(-1, 1)
+
+        return cos_x, phi_x, exclusive_loss
+    
+
+class SphereAndRgularLoss(nn.Module):
+    def __init__(self, lamb = 6):
+    super(SphereAndRgularLoss, self).__init__()
+    self.lamb = lamb
+    self.angular = AngularSoftmaxWithLoss()
+    self.loss = 0
+    self.regularLoss = 0
+
+    def forward(self, input, target):
+    loss = self.angular(input, target)
+    regularLoss = input[2]
+
+    self.loss = loss.detach()
+    self.regularLoss = regularLoss.detach()
+    return loss + self.lamb * regularLoss
+
+class regularNet(nn.Module):
+    def __init__(self, vgg, out_features):
+      super(AngularVGG, self).__init__()
+      self.resnet =  resnet()
+      self.special = AngleLayer(512, out_features)
+
+    def forward(self, x):
+      x = self.resnet(x)
+      y = self.special(x)
+      return y
