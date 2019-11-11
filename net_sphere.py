@@ -90,13 +90,12 @@ class AngleLoss(nn.Module):
         loss = loss.mean()
 
         return loss
+    
 
-
-class sphere20a(nn.Module):
-    def __init__(self,classnum=10574,feature=False):
-        super(sphere20a, self).__init__()
-        self.classnum = classnum
-        self.feature = feature
+class resnet(nn.Module):
+    def __init__(self):
+        super(resnet, self).__init__()
+        
         #input = B*3*112*96
         self.conv1_1 = nn.Conv2d(3,64,3,2,1) #=>B*64*56*48
         self.relu1_1 = nn.PReLU(64)
@@ -148,7 +147,6 @@ class sphere20a(nn.Module):
         self.relu4_3 = nn.PReLU(512)
 
         self.fc5 = nn.Linear(512*7*6,512)
-        self.fc6 = AngleLinear(512,self.classnum)
 
 
     def forward(self, x):
@@ -170,7 +168,21 @@ class sphere20a(nn.Module):
 
         x = x.view(x.size(0),-1)
         x = self.fc5(x)
-        if self.feature: return x
+        return x
 
-        x = self.fc6(x)
+
+class sphere20a(nn.Module):
+    def __init__(self,classnum=10574,feature=False):
+        super(sphere20a, self).__init__()
+        self.classnum = classnum
+        self.feature = feature
+        #input = B*3*112*96
+        self.resnet = resnet()
+        self.angleLayer = AngleLinear(512,self.classnum)
+
+
+    def forward(self, x):
+        x = self.resnet(x)
+        if self.feature: return x
+        x = self.angleLayer(x)
         return x
