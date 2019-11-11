@@ -133,7 +133,10 @@ def train(epoch,args):
 net = getattr(net_sphere,args.net)()
 # net.load_state_dict(torch.load('sphere20a_0.pth'))
 net.cuda()
-criterion = net_sphere.AngleLoss()
+if(args.net=='sphere20a'):
+    criterion = net_sphere.AngleLoss()
+else:
+    criterion = net_sphere.SphereAndRgularLoss()
 
 
 print('start: time={}'.format(dt()))
