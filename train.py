@@ -15,10 +15,13 @@ from dataset import ImageDataset
 from matlab_cp2tform import get_similarity_transform_for_cv2
 import net_sphere
 
+import warnings
+warnings.filterwarnings("ignore")
+
 
 parser = argparse.ArgumentParser(description='PyTorch sphereface')
 parser.add_argument('--net','-n', default='sphere20a', type=str)
-parser.add_argument('--dataset', default='../../dataset/face/casia/casia.zip', type=str)
+parser.add_argument('--dataset', default='/content/CASIA-WebFace.zip', type=str)
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--bs', default=256, type=int, help='')
 args = parser.parse_args()
@@ -51,7 +54,7 @@ def dataset_load(name,filename,pindex,cacheobj,zfile):
     for i in range(5):
         src_pts.append([int(split[2*i+2]),int(split[2*i+3])])
 
-    data = np.frombuffer(zfile.read(nameinzip),np.uint8)
+    data = np.frombuffer(zfile.read('CASIA-WebFace/'+nameinzip),np.uint8)
     img = cv2.imdecode(data,1)
     img = alignment(img,src_pts)
 
@@ -97,7 +100,7 @@ def train(epoch,args):
     correct = 0
     total = 0
     batch_idx = 0
-    ds = ImageDataset(args.dataset,dataset_load,'data/casia_landmark.txt',name=args.net+':train',
+    ds = ImageDataset(args.dataset,dataset_load,'/content/sphereface_pytorch/data/casia_landmark.txt',name=args.net+':train',
         bs=args.bs,shuffle=True,nthread=6,imagesize=128)
     while True:
         img,label = ds.get()
@@ -110,11 +113,11 @@ def train(epoch,args):
         inputs, targets = Variable(inputs), Variable(targets)
         outputs = net(inputs)
         loss = criterion(outputs, targets)
-        lossd = loss.data[0]
+        lossd = loss.data
         loss.backward()
         optimizer.step()
 
-        train_loss += loss.data[0]
+        train_loss += loss.data
         outputs = outputs[0] # 0=cos_theta 1=phi_theta
         _, predicted = torch.max(outputs.data, 1)
         total += targets.size(0)
