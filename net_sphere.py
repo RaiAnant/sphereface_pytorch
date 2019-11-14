@@ -54,6 +54,7 @@ class AngleLoss(nn.Module):
         self.lamb = 1500.0
         self.phiflag = phiflag
         self.m = m
+        self.regular = 0
         self.mlambda = [
             lambda x: x**0,
             lambda x: x**1,
