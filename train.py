@@ -125,7 +125,7 @@ def train(epoch,args):
 
         printoneline(dt(),'Te=%d Loss=%.4f Regular Loss=%.4f | AccT=%.4f%% (%d/%d) %.4f %.2f %d'
             % (epoch,train_loss/(batch_idx+1), criterion.lamb * criterion.regularLoss, 100.0*correct/total, correct, total, 
-            lossd, criterion.angular.lamb, criterion.it))
+            lossd, criterion.lamb, criterion.it))
         batch_idx += 1
     print('')
 
